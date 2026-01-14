@@ -1,0 +1,261 @@
+{
+  "name": "BBC Sounds HTML to RSS",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/exports/podcasts/{{ $('Generate RSS').first().json.title }}.rss",
+        "dataPropertyName": "feed",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        48
+      ],
+      "id": "d7f7593b-919e-4a0b-9942-b24e524ef56c",
+      "name": "Read/Write Files from Disk",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "feed",
+        "binaryPropertyName": "feed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1952,
+        48
+      ],
+      "id": "96462c77-2fd4-4879-bad6-ce41e8a4e97b",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Start').item.json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        48
+      ],
+      "id": "38f32df9-1a14-43fe-8ed7-b8446d1edc5c",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"url\": \"\",\n  \"title\": \"\"\n}"
+      },
+      "id": "4d95bee3-abc1-4a53-b40d-8008917e1c1a",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        608,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let feed =\n`<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\"  xmlns:content=\"http://purl.org/rss/1.0/modules/content/\">\n<channel>\n<title></title>\n<description>${ $('Start').item.json.title }</description>\n<language>en</language>\n<itunes:category text=\"\"></itunes:category>\n<itunes:explicit>false</itunes:explicit>\n  ${$input.all().map(e => e.json.rss_item).join('\\n')}\n</channel>\n</rss>`;\nlet title = $('Start').first().json.title.replaceAll(\" \", \"-\");\n\nreturn {\n  json: {\n    feed: feed,\n    title: title\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        48
+      ],
+      "id": "24a80503-60c8-4788-a52d-d11e9fcd1732",
+      "name": "Generate RSS"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  rss_item: \n`<item>\n  <title>${ $json.title }</title>\n  <link>${$json.link}</link>\n  <description>${$json.description}</description>\n  <pubDate>${$json.title}</pubDate>\n  <enclosure url=\"${$json.link}\" length=\"1\" type=\"audio/mpeg\"></enclosure>\n</item>`\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        48
+      ],
+      "id": "25c995be-b520-45f9-b561-28119f15f2c1",
+      "name": "Item RSS"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "items",
+              "cssSelector": ".programme",
+              "returnValue": "html",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true
+        }
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1056,
+        48
+      ],
+      "id": "0e0ce9b7-9c43-4e8f-a599-9c1ec74efc81",
+      "name": "Extract programmes"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "=items",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "=title",
+              "cssSelector": ".programme__title"
+            },
+            {
+              "key": "=link",
+              "cssSelector": ".programme__body a",
+              "returnValue": "attribute",
+              "attribute": "href"
+            },
+            {
+              "key": "synopsis",
+              "cssSelector": ".programme__synopsis"
+            },
+            {
+              "key": "image",
+              "cssSelector": "img",
+              "returnValue": "attribute",
+              "attribute": "data-src"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        48
+      ],
+      "id": "569516d0-42cc-4928-903c-bf0438d9b06f",
+      "name": "Extract programme data",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {
+    "Start": [
+      {
+        "json": {
+          "url": "https://www.bbc.co.uk/programmes/m002pdt3/episodes",
+          "title": "Up Late"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract programmes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate RSS": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item RSS": {
+      "main": [
+        [
+          {
+            "node": "Generate RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract programmes": {
+      "main": [
+        [
+          {
+            "node": "Extract programme data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract programme data": {
+      "main": [
+        [
+          {
+            "node": "Item RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "a9139bfc-f283-4751-aa79-3890c9754dfa",
+  "meta": {
+    "instanceId": "beabe51b653341aa84ea95b8c42f4243ac88c58988c13f702bea13c0e0b6972c"
+  },
+  "id": "GmDb8CK7H815a63a",
+  "tags": []
+}
